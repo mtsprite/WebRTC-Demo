@@ -1,0 +1,24 @@
+#localVideoDiv {
+	width: 775px;
+	height: 436px;
+	border: 3px solid black;
+	float: left;
+}
+
+#remoteVideoDiv {
+	width: 775px;
+	height: 436px;
+	border: 3px solid black;
+	float: left;
+	margin-left: 5px;
+}
+.clear {
+	clear: both;
+}
+
+video {
+	background: black;
+	width: 775px;
+	height: 436px;
+	margin: auto;
+}

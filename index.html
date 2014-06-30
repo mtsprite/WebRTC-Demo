@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>WebRTC Demo</title>
+		<link rel="stylesheet" type="text/css" href="layout.css">
+	</head>
+	<body>
+		<div id="localVideoDiv">
+			<video id="localVid" autoplay></video>
+			<div class="clear">
+			</div>
+		</div>
+		<div id="remoteVideoDiv">
+			<video id="remoteVid" autoplay muted></video>
+			<div class="clear">
+			</div>
+		</div>
+		<div class="clear">
+		</div>
+		<div id="textareas">
+			<textarea id="dataChannelSend" disabled placeholder="Press Start, enter some text, then press Send."></textarea>
+			<textarea id="dataChannelRecive" disabled></textarea>
+		</div>
+
+		<button id="sendButton" disabled>Send</button>
+
+		<script src="adapter.js"></script>
+		<script src="/socket.io/socket.io.js"><script>
+		<script src="main.js" >
+		</script>
+	</body>
+</html>
