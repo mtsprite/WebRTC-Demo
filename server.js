@@ -1,16 +1,17 @@
 //checks to make sure dependencies are met
 var staticNode = require("node-static");
 var http = require("http");
-var io = require("socket.io");
+var file = new(staticNode.Server)();
 
 //creates a new http server with a updated header
 //that is needed for socket.io to work.
-var file = http.createServer(function(req, res){
-	file.serve(re, res);
+var app = http.createServer(function(req, res){
+	file.serve(req, res);
 }).listen(2013);
 
+var io = require("socket.io").listen(app);
 //sets up the rooms and connects the user to one of them.
-io.sockets.on("connection". function(socket){
+io.sockets.on('connection', function(socket){
 
 	//makes it easier for debugging perposes
 	function log(){
@@ -43,7 +44,7 @@ io.sockets.on("connection". function(socket){
 		else if(numClients == 1){
 			io.sockets.in(room).emit("join:", room);
 			socket.join(room);
-			socket.emit("Joined", room);
+			socket.emit("joined", room);
 		}
 		//restricts the number of connected clients per room to 2.
 		else{

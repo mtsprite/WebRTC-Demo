@@ -24,8 +24,9 @@ sendButton.onclick = sendData;
 //ICE Servers are required to use WebRTC.
 //However if computers are on same LAN,
 //Then set "servers" to null.
-var server_config  = webrtcDetectedBroweser === "firefox" ?
-	{"iceServers":[{"url": servers}]};
+var server_config  = webrtcDetectedBrowser === "firefox" ?
+	{"iceServers":[{"url": servers}]} : 
+	{"iceServers": [{"url": servers}]};
 
 var pc_constraints = {
 	"optional": [
@@ -37,7 +38,9 @@ var pc_constraints = {
 var sdpConstraints = {
 	"optional": [
 	{"DtlsSrtpKeyAgreement": true},
-	{"RtpDataChannels": true }];
+	{"RtpDataChannels": true }
+]};
+
 
 
 /*****************
@@ -48,27 +51,27 @@ if(room !== "") {
 	console.log("Create or Join room" , room);
 	socket.emit("create or join" , room);
 }
-socket.on("created", function(room){
+socket.on("created", function (room){
 	console.log("Created From: " + room);
 	isInitiator = true
 });
 
-socket.on("full", function(room){
+socket.on("full", function (room){
 	console.log("Room " + room + " is full!");
 });
 
-socket.on("join", function(room){
+socket.on("join", function (room){
 	console.log("Another peer tried to join room " + room);
 	console.log("This peer is Initiator of room " + room);
 	isChannelReady = true;
 });
 
-socket.on("joined", function(room){
+socket.on("joined", function (room){
 	console.log("Peer joined room " + room);
 	isChannelReady = true;
 });
 
-socket.on("log", function(array){
+socket.on("log", function (array){
 	console.log.apply(console, array);
 });
 
@@ -79,10 +82,10 @@ socket.on("log", function(array){
 
 function sendMessage(message){
 	console.log("Sending Message ", message);
-	socket.emit("message", message");
+	socket.emit("message", message);
 }
 
-socket.on("message", function(message){
+socket.on("message", function (message){
 	console.log("Recived Message:", message);
 	if(message === "got user media"){
 		mabeStart();
@@ -98,7 +101,7 @@ socket.on("message", function(message){
 		pc.setRemoteDescription(new RTCSessionDescription(message));
 	}
 	else if(message.type === "candidate" && isStarted){
-		var candidate = new RTCIceCandidate=({sdpMLineIndex:message.label,
+		var candidate = new RTCIceCandidate({sdpMLineIndex:message.label,
 		candidate:message.candidate});
 		pc.addIceCandidate(candidate);
 	}
@@ -120,7 +123,7 @@ socket.on("message", function(message){
 	socket.emit("log", array);
 }*/
 
-function handleUserMedia(stream){
+function handleUserMedia (stream){
 	localStream = stream;
 	attachMediaStream(localVideo, stream);
 	console.log("adding Local Stream.");
@@ -130,16 +133,16 @@ function handleUserMedia(stream){
 	}
 }
 
-function handleUserMediaError(error){
+function handleUserMediaError (error){
 	console.log("getUserMedia error: ", error);
 }
 
-var constraints = [video: true];
+var constraints = {video: true};
 getUserMedia(constraints, handleUserMedia, handleUserMediaError);
 console.log("Getting User Media With Constraints:", constraints);
 
-function mabeStart(){
-	if!isStarted && localStream && isChannelReady){
+function mabeStart (){
+	if(!isStarted && localStream && isChannelReady){
 		createPeerConnection();
 		pc.addStream(localStream);
 		isStarted = true;
@@ -149,7 +152,7 @@ function mabeStart(){
 	}
 }
 
-window.onbeforeUnload = function(e) {
+window.onbeforeUnload = function (e) {
 	sendMessage("bye");
 }
 
@@ -158,7 +161,7 @@ window.onbeforeUnload = function(e) {
  * Data Connection and Exchange *
  ********************************/
 
-function createPeerConnection(){
+function createPeerConnection (){
 	try{
 		pc = new RTCPeerConnection(server_config, pc_constraints);
 		pc.onicecadidate= handleIceCandidate;
@@ -177,9 +180,9 @@ function createPeerConnection(){
 	if(isInitiator){
 		try {
 			sendChannel = pc.createDataChannel("sendDataChannel",
-					[reliable: false]);
+					{reliable: false});
 			sendChannel.onmessage - handleMessage;
-			trace"Created send Data Channel");
+			trace("Created send Data Channel");
 		}
 		catch(e) {
 			alert("Failed to create data channel. " +
@@ -193,13 +196,13 @@ function createPeerConnection(){
 		pc.ondatachannel = gotReciveChannel;
 	}
 }
-function sendData(){
+function sendData (){
 	var data = sendTextarea.value
 	sendChannel.send(data);
-	trace"Sent data: " + data);
+	trace("Sent data: " + data);
 }
 
-function gotReciveChannel(event){
+function gotReciveChannel (event){
 	trace("Recive Channe Callback");
 	sendChannel = eventChannel;
 	sendChannel.onmessage = handleMessage;
@@ -207,23 +210,23 @@ function gotReciveChannel(event){
 	sendChannel.onclose = handleReciveChannelState;
 }
 
-function handleMessage(event){
+function handleMessage (event){
 	trace("Recived Message: " + event.data);
 	reciveTextarea.value = event.data;
 }
-function handleSendChannelStateChange(){
+function handleSendChannelStateChange (){
 	var readyState = sendChannel.readyState;
 	trace("Send Channel State Is: " + readyState);
 	enableMessagingInterface(readyState == "open");
 }
 
-function handleReciveChannelStateChange(){
+function handleReciveChannelStateChange (){
 	var readyState = sendChannel.readyState;
 	trace("Recive Channel State Is: " + readyState);
 	enableMessagingInterface(readyState == "open");
 }
 
-function enableMessageInterface(shouldEnable){
+function enableMessageInterface (shouldEnable){
 	if(shouldEnable){
 		dataChannelSend.diabled = false;
 		dataChannelSend.focus();
@@ -236,25 +239,25 @@ function enableMessageInterface(shouldEnable){
 	}
 }
 
-function handleIceCandidate(event){
+function handleIceCandidate (event){
 	console.log("handleiceCandidate event: " + event);
 	if(event.candiddate) {
 		sendMessage({
 					type: "candidate",
 					label: event.candidate.sdpMLineIndex,
 					id: event.candidate.sdpMid,
-					candidate event.candidate.candidate});
+					candidate: event.candidate.candidate});
 	}
 	else {
 		console.log("End of candidates.");
 	}
 }
 
-function doCall(){
+function doCall (){
 	var constraints = {"optional": [], "mandatory": {"MozDontOfferDataChannel": true}};
 	if(webrtcDetectBrowser === "chrome"){
 		for(var prop in constraints.mandatory){
-			if(prop.indexOf("Moz") !== -1{
+			if(prop.indexOf("Moz") !== -1){
 				delete constraints.mandatory[prop];
 			}
 		}
@@ -264,7 +267,7 @@ function doCall(){
 	pc.createOffer(setLocalAndSendMessage, null, sdpConstraints);
 }
 
-function mergeConstraints(cons1, cons2){
+function mergeConstraints (cons1, cons2){
 	var merged = cons1;
 	for(var name in cons2.mandatory){
 		merged.mandatory[name] = cons2.mandatory[name];
@@ -273,19 +276,19 @@ function mergeConstraints(cons1, cons2){
 	return merged;
 }
 
-function handleRemoteStreamAdded(event) {
+function handleRemoteStreamAdded (event) {
 	console.log("Remote Stream Added.");
 	attachMediaStream(remoteVideo, event.stream)
 	remoteStream = event.stream;
 }
 
-function hangup(){
+function hangup (){
 	console.log("Hanging Up");
 	stop();
 	isInitiator = false;
 }
 
-function stop(){
+function stop (){
 	isStarted = false;
 	pc.close();
 	pc = null;
