@@ -3,7 +3,7 @@
 /*****************
  *     SetUp     *
  *****************/
-var localStream, localPeer, remotePeer;
+var localStream, remoteStream, localPeer, remotePeer;
 var localVideo = document.getElementById("localVid");
 var remoteVideo = document.getElementById("remoteVid");
 var sendTextarea = document.getElementById("dataChannelSend");
@@ -13,7 +13,7 @@ var room = location.pathname.substring(1);
 var servers = null;
 var socket = io.connect();
 var isInitiator;
-var isChennelReady;
+var isChannelReady;
 var isStarted;
 var sendChannel;
 var pc;
@@ -24,7 +24,6 @@ sendButton.onclick = sendData;
 //ICE Servers are required to use WebRTC.
 //However if computers are on same LAN,
 //Then set "servers" to null.
-var server_config_config = {'iceServers': [{'url': servers}]};
 
 var pc_constraints = {
 	'optional': [{'DtlsSrtpKeyAgreement': true}, {'RtpDataChannels': true}]};
@@ -136,9 +135,9 @@ function handleUserMediaError (error){
 	console.log("getUserMedia error: ", error);
 }
 
-var constraints = {video: true};
-getUserMedia(constraints, handleUserMedia, handleUserMediaError);
-console.log("Getting User Media With Constraints:", constraints);
+var media_constraints = {video: true};
+getUserMedia(media_constraints, handleUserMedia, handleUserMediaError);
+console.log("Getting User Media With Constraints:", media_constraints);
 
 function mabeStart (){
 	if(!isStarted && localStream && isChannelReady){
@@ -162,10 +161,10 @@ window.onbeforeUnload = function (e) {
 
 function createPeerConnection (){
 	try{
-		pc = new RTCPeerConnection(server_config, pc_constraints);
-		pc.onicecadidate= handleIceCandidate;
+		pc = new RTCPeerConnection(servers, pc_constraints);
+		pc.onicecandidate = handleIceCandidate;
 		console.log("Created RTCPeerConnnection with:\n" +
-			" config: \'" + JSON.stringify(server_config) + "\';\n" +
+			" config: \'" + JSON.stringify(servers) + "\';\n" +
 			" constraints: \'" + JSON.stringify(pc_constraints) + "\'.");
 	}
 	catch(e) {
@@ -173,14 +172,14 @@ function createPeerConnection (){
 		alert("Cannot create RTCPeerConnection object.");
 		return;
 	}
-	pc.onaddstream = handleRemoteStreamAdd;
+	pc.onaddstream = handleRemoteStreamAdded;
 	pc.onremovestream = handleRemoteStreamRemoved;
 
 	if(isInitiator){
 		try {
 			sendChannel = pc.createDataChannel("sendDataChannel",
 					{reliable: false});
-			sendChannel.onmessage - handleMessage;
+			sendChannel.onmessage = handleMessage;
 			trace("Created send Data Channel");
 		}
 		catch(e) {
@@ -189,14 +188,14 @@ function createPeerConnection (){
 			trace("createDataChannel() failed with exception: " + e.message);
 		}
 		sendChannel.onopen = handleSendChannelStateChange;
-		sendChannel.omclose = handleSendChannelStateChange;
+		sendChannel.onclose = handleSendChannelStateChange;
 	}
 	else{
 		pc.ondatachannel = gotReciveChannel;
 	}
 }
 function sendData (){
-	var data = sendTextarea.value
+	var data = sendTextarea.value;
 	sendChannel.send(data);
 	trace("Sent data: " + data);
 }
@@ -205,8 +204,8 @@ function gotReciveChannel (event){
 	trace("Recive Channe Callback");
 	sendChannel = eventChannel;
 	sendChannel.onmessage = handleMessage;
-	sendChannel.onopen = handleReciveChannelState;
-	sendChannel.onclose = handleReciveChannelState;
+	sendChannel.onopen = handleReciveChannelStateChange;
+	sendChannel.onclose = handleReciveChannelStateChange;
 }
 
 function handleMessage (event){
@@ -216,13 +215,13 @@ function handleMessage (event){
 function handleSendChannelStateChange (){
 	var readyState = sendChannel.readyState;
 	trace("Send Channel State Is: " + readyState);
-	enableMessagingInterface(readyState == "open");
+	enableMessageInterface(readyState == "open");
 }
 
 function handleReciveChannelStateChange (){
 	var readyState = sendChannel.readyState;
 	trace("Recive Channel State Is: " + readyState);
-	enableMessagingInterface(readyState == "open");
+	enableMessageInterface(readyState == "open");
 }
 
 function enableMessageInterface (shouldEnable){
@@ -240,7 +239,7 @@ function enableMessageInterface (shouldEnable){
 
 function handleIceCandidate (event){
 	console.log("handleiceCandidate event: " + event);
-	if(event.candiddate) {
+	if(event.candidate) {
 		sendMessage({
 					type: "candidate",
 					label: event.candidate.sdpMLineIndex,
@@ -254,7 +253,7 @@ function handleIceCandidate (event){
 
 function doCall (){
 	var constraints = {"optional": [], "mandatory": {"MozDontOfferDataChannel": true}};
-	if(webrtcDetectBrowser === "chrome"){
+	if(webrtcDetectedBrowser === "chrome"){
 		for(var prop in constraints.mandatory){
 			if(prop.indexOf("Moz") !== -1){
 				delete constraints.mandatory[prop];
@@ -263,7 +262,23 @@ function doCall (){
 	}
 	constraints = mergeConstraints(constraints, sdpConstraints);
 	console.log("Sending offer to peer with constraints: \n" + " \'" + JSON.stringify(constraints) + "\'.");
-	pc.createOffer(setLocalAndSendMessage, null, sdpConstraints);
+	pc.createOffer(setLocalAndSendMessage,
+			function(e){
+				console.log("Create Offer Error: " + e.message);
+			},
+			sdpConstraints);
+}
+
+function doAnswer(){
+	console.log("Sending Answer to Peer");
+	pc.createAnswer(setLocalAndSendMessage, null, sdpConstraints);
+}
+
+function setLocalAndSendMessage (sessionDescription){
+	console.log("setLocalAndSendMessage Called!");
+	sessionDescription.sdp = preferOpus(sessionDescription.sdp);
+	pc.setLocalDescription(sessionDescription);
+	sendMessage(sessionDescription);
 }
 
 function mergeConstraints (cons1, cons2){
@@ -277,12 +292,22 @@ function mergeConstraints (cons1, cons2){
 
 function handleRemoteStreamAdded (event) {
 	console.log("Remote Stream Added.");
-	attachMediaStream(remoteVideo, event.stream)
+	attachMediaStream(remoteVideo, event.stream);
 	remoteStream = event.stream;
 }
 
+function handleRemoteStreamRemoved(){
+	console.log("Remote Stream Removed. Event: ", event);
+};
+
 function hangup (){
 	console.log("Hanging Up");
+	stop();
+	sendMessage('bye');
+}
+
+function handleRemoteHangup(){
+	console.log("Session terminated.");
 	stop();
 	isInitiator = false;
 }
@@ -291,4 +316,80 @@ function stop (){
 	isStarted = false;
 	pc.close();
 	pc = null;
+}
+
+
+// Set Opus as the default audio codec if it's present.
+function preferOpus(sdp) {
+	var sdpLines = sdp.split('\r\n');
+	var mLineIndex;
+	// Search for m line.
+	for (var i = 0; i < sdpLines.length; i++) {
+		if (sdpLines[i].search('m=audio') !== -1) {
+			mLineIndex = i;
+			break;
+		}
+	}
+	if (mLineIndex === null) {
+		return sdp;
+	}
+
+  // If Opus is available, set it as the default in m line.
+  for (i = 0; i < sdpLines.length; i++) {
+    if (sdpLines[i].search('opus/48000') !== -1) {
+      var opusPayload = extractSdp(sdpLines[i], /:(\d+) opus\/48000/i);
+      if (opusPayload) {
+        sdpLines[mLineIndex] = setDefaultCodec(sdpLines[mLineIndex], opusPayload);
+      }
+      break;
+    }
+  }
+
+  // Remove CN in m line and sdp.
+  sdpLines = removeCN(sdpLines, mLineIndex);
+
+  sdp = sdpLines.join('\r\n');
+  return sdp;
+}
+
+function extractSdp(sdpLine, pattern) {
+  var result = sdpLine.match(pattern);
+  return result && result.length === 2 ? result[1] : null;
+}
+
+// Set the selected codec to the first in m line.
+function setDefaultCodec(mLine, payload) {
+  var elements = mLine.split(' ');
+  var newLine = [];
+  var index = 0;
+  for (var i = 0; i < elements.length; i++) {
+    if (index === 3) { // Format of media starts from the fourth.
+      newLine[index++] = payload; // Put target payload to the first.
+    }
+    if (elements[i] !== payload) {
+      newLine[index++] = elements[i];
+    }
+  }
+  return newLine.join(' ');
+}
+
+// Strip CN from sdp before CN constraints is ready.
+function removeCN(sdpLines, mLineIndex) {
+  var mLineElements = sdpLines[mLineIndex].split(' ');
+  // Scan from end for the convenience of removing an item.
+  for (var i = sdpLines.length-1; i >= 0; i--) {
+    var payload = extractSdp(sdpLines[i], /a=rtpmap:(\d+) CN\/\d+/i);
+    if (payload) {
+      var cnPos = mLineElements.indexOf(payload);
+      if (cnPos !== -1) {
+        // Remove CN payload from m line.
+        mLineElements.splice(cnPos, 1);
+      }
+      // Remove CN line in sdp
+      sdpLines.splice(i, 1);
+    }
+  }
+
+  sdpLines[mLineIndex] = mLineElements.join(' ');
+  return sdpLines;
 }

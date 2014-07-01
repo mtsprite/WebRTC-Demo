@@ -4,7 +4,7 @@ var file = new(static.Server)();
 var app = http.createServer(function (req, res) {
 	  file.serve(req, res);
 }).listen(2013);
-
+var numClients = 0;
 var io = require('socket.io').listen(app);
 
 io.sockets.on('connection', function (socket){
@@ -24,7 +24,7 @@ io.sockets.on('connection', function (socket){
 	});
 
 	socket.on('create or join', function (room) {
-		var numClients = io.sockets.clients(room).length;
+		//var numClients = io.sockets.clients(room).length;
 
 		log('Room ' + room + ' has ' + numClients + ' client(s)');
 		log('Request to create or join room', room);
@@ -32,11 +32,13 @@ io.sockets.on('connection', function (socket){
 		if (numClients == 0){
 			socket.join(room);
 			socket.emit('created', room);
+			numClients=1;
 		} 
 		else if (numClients == 1) {
 			io.sockets.in(room).emit('join', room);
 			socket.join(room);
 			socket.emit('joined', room);
+			numClients=2;
 		} 
 		else { // max two clients
 			socket.emit('full', room);
