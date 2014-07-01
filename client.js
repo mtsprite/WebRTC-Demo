@@ -11,7 +11,7 @@ var reciveTextarea = document.getElementById("dataChannelRevcive");
 var sendButton = document.getElementById("sendButton");
 var room = location.pathname.substring(1);
 var servers = null;
-var socket = io.connect;
+var socket = io.connect();
 var isInitiator;
 var isChennelReady;
 var isStarted;
@@ -24,55 +24,54 @@ sendButton.onclick = sendData;
 //ICE Servers are required to use WebRTC.
 //However if computers are on same LAN,
 //Then set "servers" to null.
-var server_config  = webrtcDetectedBrowser === "firefox" ?
-	{"iceServers":[{"url": servers}]} : 
-	{"iceServers": [{"url": servers}]};
+var server_config_config = {'iceServers': [{'url': servers}]};
 
 var pc_constraints = {
-	"optional": [
-	{"DtlsSrtpKeyAgreement": true},
-	{"RtpDataChannels": true}
-]};
+	'optional': [{'DtlsSrtpKeyAgreement': true}, {'RtpDataChannels': true}]};
 
-
-var sdpConstraints = {
-	"optional": [
-	{"DtlsSrtpKeyAgreement": true},
-	{"RtpDataChannels": true }
-]};
-
-
+var sdpConstraints = {'mandatory': {
+  'OfferToReceiveAudio':true,
+  'OfferToReceiveVideo':true }};
 
 /*****************
  *   On Connect  *
  *****************/
 
+var room = location.pathname.substring(1);
+if (room === '') {
+//  room = prompt('Enter room name:');
+  room = 'foo';
+} else {
+  //
+}
+
 if(room !== "") {
 	console.log("Create or Join room" , room);
 	socket.emit("create or join" , room);
 }
-socket.on("created", function (room){
-	console.log("Created From: " + room);
-	isInitiator = true
+
+socket.on('created', function (room){
+  console.log('Created room ' + room);
+  isInitiator = true;
 });
 
-socket.on("full", function (room){
-	console.log("Room " + room + " is full!");
+socket.on('full', function (room){
+  console.log('Room ' + room + ' is full');
 });
 
-socket.on("join", function (room){
-	console.log("Another peer tried to join room " + room);
-	console.log("This peer is Initiator of room " + room);
-	isChannelReady = true;
+socket.on('join', function (room){
+  console.log('Another peer made a request to join room ' + room);
+  console.log('This peer is the initiator of room ' + room + '!');
+  isChannelReady = true;
 });
 
-socket.on("joined", function (room){
-	console.log("Peer joined room " + room);
-	isChannelReady = true;
+socket.on('joined', function (room){
+  console.log('This peer has joined room ' + room);
+  isChannelReady = true;
 });
 
-socket.on("log", function (array){
-	console.log.apply(console, array);
+socket.on('log', function (array){
+  console.log.apply(console, array);
 });
 
 

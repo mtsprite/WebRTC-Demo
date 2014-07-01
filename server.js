@@ -1,58 +1,48 @@
-//checks to make sure dependencies are met
-var staticNode = require("node-static");
-var http = require("http");
-var file = new(staticNode.Server)();
-
-//creates a new http server with a updated header
-//that is needed for socket.io to work.
-var app = http.createServer(function(req, res){
-	file.serve(req, res);
+var static = require('node-static');
+var http = require('http');
+var file = new(static.Server)();
+var app = http.createServer(function (req, res) {
+	  file.serve(req, res);
 }).listen(2013);
 
-var io = require("socket.io").listen(app);
-//sets up the rooms and connects the user to one of them.
-io.sockets.on('connection', function(socket){
+var io = require('socket.io').listen(app);
 
-	//makes it easier for debugging perposes
+io.sockets.on('connection', function (socket){
+
 	function log(){
-		var array = [">>> "];
-		for (var i = 0; i < arguments.length; i++){
+		var array = [">>> Message from server: "];
+		for (var i = 0; i < arguments.length; i++) {
 			array.push(arguments[i]);
 		}
-		socket.emit("log", array);
+		socket.emit('log', array);
 	}
-
-	//handles the delivery of any message the local user
-	//sends th the remote user
-	socket.on("message", function(message){
-		log("Got Message", message);
-		socket.broadcast.emit("message", message);
+	
+	socket.on('message', function (message) {
+		log('Got message: ', message);
+		// For a real app, should be room only (not broadcast)
+		socket.broadcast.emit('message', message);
 	});
 
-	//handles the creation of rooms
-	//or the placing of a user in  a room.
-	socket.on("create or join", function(room) {
-		var numClients = io.sockets.client(room).length;
+	socket.on('create or join', function (room) {
+		var numClients = io.sockets.clients(room).length;
 
-		log("room" + room + " has " + numClients + " client(s)");
-		log("Request to create or join room", room);
+		log('Room ' + room + ' has ' + numClients + ' client(s)');
+		log('Request to create or join room', room);
 
-		if(numClients == 0){
+		if (numClients == 0){
 			socket.join(room);
-			socket.emit("created", room);
-		}
-		else if(numClients == 1){
-			io.sockets.in(room).emit("join:", room);
+			socket.emit('created', room);
+		} 
+		else if (numClients == 1) {
+			io.sockets.in(room).emit('join', room);
 			socket.join(room);
-			socket.emit("joined", room);
+			socket.emit('joined', room);
+		} 
+		else { // max two clients
+			socket.emit('full', room);
 		}
-		//restricts the number of connected clients per room to 2.
-		else{
-			socket.emit("full", room);
-		}
-	socket.emit("emit(): client " + socket.id + " joined room" + room);
-	socket.broadcast.emit("broadcast(): client " + socket.id + " joined room " + room);
-	});
+
+		socket.emit('emit(): client ' + socket.id + ' joined room ' + room);
+		socket.broadcast.emit('broadcast(): client ' + socket.id + ' joined room ' + room);
+		});
 });
-
-
